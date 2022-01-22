@@ -14,4 +14,4 @@ cmake ..
 
 First start the visual debugger executable, and leave it running. In a separate program, run the shared_memory_client to send data.
 
-![](https://github.com/erwincoumans/visual_debugger/blob/master/visual_debugger.png)
+![](https://raw.githubusercontent.com/erwincoumans/visual_debugger/main/visual_debugger.png)
