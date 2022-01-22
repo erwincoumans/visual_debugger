@@ -1,6 +1,6 @@
 # visual_debugger
 
-visual_debugger
+A simple visual debugger using OpenGL, ImGui and a shared memory connection, to receive and visualize data from a client.
 
 ## build
 Use cmake
