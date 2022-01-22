@@ -8,9 +8,6 @@ using namespace visdebug;
 
 int main(int argc, char* argv[])
 {
-	//CommandLineArgs args(argc, argv);
-	//bool isServer = args.CheckCmdLineFlag("server");
-	
 	Win32SharedMemory shmem;
 	//only the server initializes the shared memory, not the client!
 	bool allowCreation = false;
