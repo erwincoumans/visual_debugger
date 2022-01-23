@@ -623,9 +623,6 @@ void TinyX11OpenGLWindow::create_window(const TinyWindowConstructionInfo& ci) {
 
 #endif
 
-  if (ci.m_openglVersion < 3) {
-    forceOpenGL3 = false;
-  }
 
   if (forceOpenGL3) {
     int glxMinor, glxMajor;

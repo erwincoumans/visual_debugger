@@ -15,10 +15,12 @@
 #include <sys/ipc.h>
 
 #endif
+#include <vector>
+#include <iostream>
 
 namespace visdebug
 {
-  
+
 struct btSharedMemorySegment
 {
 	int m_key;
@@ -36,7 +38,7 @@ struct btSharedMemorySegment
 
 struct PosixSharedMemoryInteralData
 {
-	btAlignedObjectArray<btSharedMemorySegment> m_segments;
+	std::vector<btSharedMemorySegment> m_segments;
 
 	PosixSharedMemoryInteralData()
 	{
@@ -61,7 +63,7 @@ struct btPointerCaster
 	};
 };
 
-void* PosixSharedMemory::allocateSharedMemory(int key, int size, bool allowCreation)
+void* PosixSharedMemory::allocate(int key, int size, bool allowCreation)
 {
 #ifdef TEST_SHARED_MEMORY
 
@@ -79,7 +81,7 @@ void* PosixSharedMemory::allocateSharedMemory(int key, int size, bool allowCreat
 		}
 		if (seg)
 		{
-			b3Error("already created shared memory segment using same key");
+			std::cout << "already created shared memory segment using same key" << std::endl;
 			return seg->m_sharedMemoryPtr;
 		}
 	}
@@ -96,7 +98,7 @@ void* PosixSharedMemory::allocateSharedMemory(int key, int size, bool allowCreat
 		result.ptr = shmat(id, 0, 0);
 		if (result.integer == -1)
 		{
-			b3Error("shmat returned -1");
+			std::cout << "shmat returned -1"<<std::endl;
 		}
 		else
 		{
@@ -115,7 +117,7 @@ void* PosixSharedMemory::allocateSharedMemory(int key, int size, bool allowCreat
 #endif
 	return 0;
 }
-void PosixSharedMemory::releaseSharedMemory(int key, int size)
+void PosixSharedMemory::release(int key, int size)
 {
 #ifdef TEST_SHARED_MEMORY
 
@@ -133,13 +135,13 @@ void PosixSharedMemory::releaseSharedMemory(int key, int size)
 
 	if (0 == seg)
 	{
-		b3Error("PosixSharedMemory::releaseSharedMemory: shared memory key not found");
+		std::cout << "PosixSharedMemory::releaseSharedMemory: shared memory key not found" << std::endl;
 		return;
 	}
 
 	if (seg->m_sharedMemoryId < 0)
 	{
-		b3Error("PosixSharedMemory::releaseSharedMemory: shared memory id is not set");
+		std::cout << "PosixSharedMemory::releaseSharedMemory: shared memory id is not set" << std::endl;
 	}
 	else
 	{
@@ -148,11 +150,11 @@ void PosixSharedMemory::releaseSharedMemory(int key, int size)
 			int result = shmctl(seg->m_sharedMemoryId, IPC_RMID, 0);
 			if (result == -1)
 			{
-				b3Error("PosixSharedMemory::releaseSharedMemory: shmat returned -1");
+				std::cout << "PosixSharedMemory::releaseSharedMemory: shmat returned -1" <<std::endl;
 			}
 			else
 			{
-				b3Printf("PosixSharedMemory::releaseSharedMemory removed shared memory");
+				std::cout << "PosixSharedMemory::releaseSharedMemory removed shared memory" << std::endl;
 			}
 			seg->m_createdSharedMemory = false;
 			seg->m_sharedMemoryId = -1;
@@ -161,11 +163,11 @@ void PosixSharedMemory::releaseSharedMemory(int key, int size)
 		{
 			shmdt(seg->m_sharedMemoryPtr);
 			seg->m_sharedMemoryPtr = 0;
-			b3Printf("PosixSharedMemory::releaseSharedMemory detached shared memory\n");
+			std::cout << "PosixSharedMemory::releaseSharedMemory detached shared memory\n" <<std::endl;
 		}
 	}
 
-	m_internalData->m_segments.removeAtIndex(i);
+	m_internalData->m_segments.erase(m_internalData->m_segments.begin()+i);
 
 #endif
 }

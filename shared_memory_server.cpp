@@ -1,5 +1,9 @@
 
+#ifdef _WIN32
 #include "win32_shared_memory.h"
+#else
+#include "posix_shared_memory.h"
+#endif // _WIN32
 #include <iostream>
 
 using namespace visdebug;
@@ -20,17 +24,24 @@ BOOL WINAPI consoleHandler(DWORD signal) {
 
     return TRUE;
 }
+#else
 #endif
 
 
 int main(int argc, char* argv[])
 {
+#ifdef _WIN32
 	 if (!SetConsoleCtrlHandler(consoleHandler, TRUE)) {
-        printf("\nERROR: Could not set control handler"); 
+        printf("\nERROR: Could not set control handler");
         return 1;
     }
+    Win32SharedMemory shmem;
+#else
 
-	Win32SharedMemory shmem;
+    PosixSharedMemory shmem;
+#endif
+
+
 	//only the server initializes the shared memory!
 	bool allowCreation = true;
 	int key = SHARED_MEMORY_KEY;
@@ -50,7 +61,7 @@ int main(int argc, char* argv[])
 			shared_mem_block->num_server_status_ = 0;
 			shared_mem_block->num_processed_server_status_ = 0;
 			shared_mem_block->version_number_ = SHARED_MEMORY_VERSION_NUMBER;
-			
+
 			while (keep_running)
 			{
 				//check if there is any unprocessed commands
@@ -93,6 +104,6 @@ int main(int argc, char* argv[])
 	{
 		std::cout << "Cannot create shared memory" << std::endl;
 	}
-	
+
 	shmem.release(key, size);
 }

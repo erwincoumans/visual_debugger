@@ -19,11 +19,55 @@
 #include "opengl3/imgui_impl_opengl3.h"
 #include "imnodes.h"
 #include "imgui.h"
-
-#include "win32_shared_memory.h"
 #include <iostream>
 
+
+
+
+
+#ifdef _WIN32
+#include "win32_shared_memory.h"
 using namespace visdebug;
+#else
+#include "posix_shared_memory.h"
+#endif
+
+using namespace visdebug;
+
+int key = SHARED_MEMORY_KEY;
+int size = sizeof(SharedMemoryBlock);
+
+
+#ifndef _WIN32
+#include <signal.h>
+#include <err.h>
+#include <unistd.h>
+
+static bool interrupted = false;
+
+PosixSharedMemory shmem;
+static void cleanup(int signo)
+{
+        if (!interrupted)
+        {  // this is the second time, we're hanging somewhere
+                std::cout << "Aborting and deleting SharedMemoryCommon object" << std::endl;
+                shmem.release(key, size);
+                sleep(1);
+                std::cout << EXIT_FAILURE << " aborted example on signal " << signo << std::endl;
+        }
+        else
+        {
+                std::cout << "no action" << std::endl;
+                exit(EXIT_FAILURE);
+        }
+        interrupted = true;
+        warnx("caught signal %d", signo);
+}
+
+
+#endif // _WIN32
+
+
 
 
 bool keep_running = true;
@@ -92,7 +136,7 @@ void MyKeyboardCallback(int keycode, int state)
     {
         releasedA = true;
     }
-   
+
     ImGuiIO& io = ImGui::GetIO();
     if (state == 1)
         io.KeysDown[keycode] = true;
@@ -132,8 +176,6 @@ void MyKeyboardCallback(int keycode, int state)
         default_keyboard_callback(keycode, state);
     }
 
-
-
 }
 
 
@@ -141,12 +183,35 @@ std::vector<float> wav_data;
 
 
 int main(int argc, char* argv[]) {
-    
+
+//in case the application terminates early, we still need to clean up
+//shared memory, so install a handler
+
+#ifdef _WIN32
+
+    if (!SetConsoleCtrlHandler(consoleHandler, TRUE)) {
+        printf("\nERROR: Could not set control handler");
+        return 1;
+    }
+
     Win32SharedMemory shmem;
+#else
+
+    struct sigaction action;
+    memset(&action, 0x0, sizeof(action));
+    action.sa_handler = cleanup;
+    static const int signos[] = {SIGHUP, SIGINT, SIGQUIT, SIGABRT, SIGSEGV, SIGPIPE, SIGTERM};
+    for (int ii(0); ii < sizeof(signos) / sizeof(*signos); ++ii)
+    {
+            if (0 != sigaction(signos[ii], &action, NULL))
+            {
+                    err(EXIT_FAILURE, "signal %d", signos[ii]);
+            }
+    }
+#endif // _WIN32
 	//only the server initializes the shared memory!
 	bool allowCreation = true;
-	int key = SHARED_MEMORY_KEY;
-	int size = sizeof(SharedMemoryBlock);
+
 	SharedMemoryBlock* shared_mem_block = static_cast<SharedMemoryBlock*>(shmem.allocate(key, size, allowCreation));
 	if (shared_mem_block)
 	{
@@ -162,28 +227,28 @@ int main(int argc, char* argv[]) {
 			shared_mem_block->num_server_status_ = 0;
 			shared_mem_block->num_processed_server_status_ = 0;
 			shared_mem_block->version_number_ = SHARED_MEMORY_VERSION_NUMBER;
-			
+
             TinyOpenGL3App app("visual debugger", 1024, 768);
-        
+
             //TinyChromeUtilsStartTimings();
 
             TinyClock clock;
             clock.reset();
             double prev_time = clock.get_time_seconds();
-       
+
             app.set_up_axis(2);
-    
+
             default_mouse_move_callback = app.m_window->get_mouse_move_callback();
             app.m_window->set_mouse_move_callback(MyMouseMoveCallback);
             default_mouse_button_callback = app.m_window->get_mouse_button_callback();
             app.m_window->set_mouse_button_callback(MyMouseButtonCallback);
             default_keyboard_callback = app.m_window->get_keyboard_callback();
             app.m_window->set_keyboard_callback(MyKeyboardCallback);
-    
+
             IMGUI_CHECKVERSION();
             ImGui::CreateContext();
             ImGuiIO& io = ImGui::GetIO(); (void)io;
-        
+
             //io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
             io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
             io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
@@ -204,7 +269,7 @@ int main(int argc, char* argv[]) {
             io.KeyMap[ImGuiKey_Enter] = TINY_KEY_RETURN;
             io.KeyMap[ImGuiKey_Escape] = TINY_KEY_ESCAPE;
             io.KeyMap[ImGuiKey_KeyPadEnter] = 0;
-        
+
             io.KeyMap[ImGuiKey_A] = 'a';
             io.KeyMap[ImGuiKey_C] = 'c';
             io.KeyMap[ImGuiKey_V] = 'v';
@@ -240,7 +305,7 @@ int main(int argc, char* argv[]) {
 
 
 
-            while (!app.m_window->requested_exit() && keep_running) 
+            while (!app.m_window->requested_exit() && keep_running)
             {
                 B3_PROFILE("mainloop");
 				//check if there is any unprocessed commands
@@ -260,7 +325,7 @@ int main(int argc, char* argv[]) {
                             {
                                 wav_data[i] = shared_mem_block->float_values_[i];
                             }
-                            
+
 							shared_mem_block->server_status_.status_code = STAT_DEBUG_AUDIO_COMPLETED;
 							shared_mem_block->num_server_status_++;
 							break;
@@ -281,7 +346,7 @@ int main(int argc, char* argv[]) {
 
 					shared_mem_block->num_processed_client_commands_++;
 				}
-                
+
                 int upAxis = 2;
 
                 DrawGridData data;
@@ -329,16 +394,16 @@ int main(int argc, char* argv[]) {
                     {
                         ImGui::Text("No Data Received");
                     }
-                    
+
                 }
                 ImGui::End();
-       
+
                 ImGui::Render();
                 ImGui::EndFrame();
                 {
                     app.swap_buffer();
                 }
-            }    
+            }
 
 		}
 
@@ -346,7 +411,8 @@ int main(int argc, char* argv[]) {
 	{
 		std::cout << "Cannot create shared memory" << std::endl;
 	}
-	
+
+	std::cout << "Releasing shared memory" << std::endl;
 	shmem.release(key, size);
 
 
@@ -359,7 +425,7 @@ int main(int argc, char* argv[]) {
     }
 #endif
 
-    
+
   //TinyChromeUtilsStopTimingsAndWriteJsonFile("performance_profile.json");
 
   return 0;
