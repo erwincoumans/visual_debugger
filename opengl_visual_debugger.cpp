@@ -329,8 +329,9 @@ int main(int argc, char* argv[]) {
                     {
                         ImGui::Text("No Data Received");
                     }
-                    ImGui::End();
+                    
                 }
+                ImGui::End();
        
                 ImGui::Render();
                 ImGui::EndFrame();
